@@ -68,6 +68,7 @@ const els = {
   headerFormat: document.querySelector("#headerFormat"),
   headerSaving: document.querySelector("#headerSaving"),
   supportPill: document.querySelector("#supportPill"),
+  settingsSummary: document.querySelector("#settingsSummary"),
   codecGrid: document.querySelector("#codecGrid"),
   qualityRange: document.querySelector("#qualityRange"),
   qualityValue: document.querySelector("#qualityValue"),
@@ -82,7 +83,7 @@ const els = {
   matteInput: document.querySelector("#matteInput"),
   compressButton: document.querySelector("#compressButton"),
   resetButton: document.querySelector("#resetButton"),
-  swapButton: document.querySelector("#swapButton"),
+  previewToggle: document.querySelector("#previewToggle"),
   compareBox: document.querySelector("#compareBox"),
   compareSlider: document.querySelector("#compareSlider"),
   beforeImage: document.querySelector("#beforeImage"),
@@ -165,20 +166,31 @@ async function checkCodecSupport() {
   Object.entries(state.supported).forEach(([id, supported]) => {
     const card = document.querySelector(`.codec-card input[value="${id}"]`)?.closest(".codec-card");
     const input = document.querySelector(`.codec-card input[value="${id}"]`);
+    const description = card?.querySelector("small");
     if (!card || !input) return;
     card.classList.toggle("is-disabled", !supported);
     input.disabled = !supported;
+    if (description) {
+      description.textContent = supported
+        ? {
+            webp: "Modern default",
+            jpeg: "Most compatible photo format",
+            png: "Lossless, exact pixels",
+            "png-palette": "Fewer colors, smaller PNG",
+            avif: "Efficient, browser-dependent",
+          }[id]
+        : "Not available in this browser";
+    }
   });
 
   if (!state.supported.webp) {
     document.querySelector('input[value="jpeg"]').checked = true;
   }
 
-  const available = Object.entries(state.supported)
-    .filter(([, supported]) => supported)
-    .map(([id]) => codecs[id].label)
-    .join(", ");
-  els.supportPill.textContent = `${available} ready`;
+  const count = Object.values(state.supported).filter(Boolean).length;
+  els.supportPill.textContent = `${count} formats available`;
+  els.supportPill.title =
+    "Grey formats are not broken. This browser just cannot create that output format from a web page.";
   syncControls();
 }
 
@@ -436,8 +448,8 @@ async function compressImage() {
     els.downloadButton.href = state.outputUrl;
     els.downloadButton.download = outputName(codec);
     els.downloadButton.classList.remove("is-disabled");
-    els.swapButton.disabled = false;
     els.compareBox.classList.add("has-output");
+    updatePreviewButtons();
 
     const dims = `${canvas.width} x ${canvas.height}`;
     const saved = 1 - blob.size / state.file.size;
@@ -514,6 +526,9 @@ async function handleFile(file) {
   document.querySelector(".drop-subtitle").textContent = file.name;
   els.afterImage.removeAttribute("src");
   els.compareBox.classList.remove("has-output");
+  state.previewMode = "compare";
+  syncCompareSlider();
+  updatePreviewButtons();
   els.sourceMeta.classList.remove("is-hidden");
   els.sourceSize.textContent = formatBytes(file.size);
   els.sourceDimensions.textContent = `${state.image.naturalWidth} x ${state.image.naturalHeight}`;
@@ -526,7 +541,6 @@ async function handleFile(file) {
   els.downloadButton.removeAttribute("href");
   els.resetButton.disabled = false;
   els.compressButton.disabled = false;
-  els.swapButton.disabled = true;
   els.outputSize.textContent = "-";
   els.savedPercent.textContent = "-";
   els.outputDimensions.textContent = "-";
@@ -561,26 +575,62 @@ function syncCompareSlider() {
   }
 }
 
+function setControlAvailability(name, isAvailable, note) {
+  const row = document.querySelector(`[data-control="${name}"]`);
+  if (!row) return;
+  row.classList.toggle("is-unavailable", !isAvailable);
+  row.querySelectorAll("input").forEach((input) => {
+    input.disabled = !isAvailable;
+  });
+  const scope = row.querySelector(".setting-scope");
+  if (scope) {
+    scope.dataset.defaultText ||= scope.textContent;
+    scope.textContent = isAvailable ? scope.dataset.defaultText : note;
+  }
+}
+
+function updatePreviewButtons() {
+  els.previewToggle.querySelectorAll("button").forEach((button) => {
+    button.disabled = !state.outputUrl;
+    button.classList.toggle("is-active", button.dataset.view === state.previewMode);
+  });
+}
+
 function syncControls() {
   const codecId = selectedCodecId();
   const codec = selectedCodec();
   const isPalette = codecId === "png-palette";
-  const showQuality = codec.lossy && !isPalette;
-  const showTarget = codec.targetable;
-  const showMatte = codecId === "jpeg";
+  const usesQuality = codec.lossy && !isPalette;
+  const usesTarget = codec.targetable;
+  const usesMatte = codecId === "jpeg";
 
-  document.querySelector('[data-control="quality"]').classList.toggle("is-hidden", !showQuality);
-  document.querySelector('[data-control="palette"]').classList.toggle("is-hidden", !isPalette);
-  document.querySelector('[data-control="dither"]').classList.toggle("is-hidden", !isPalette);
-  document.querySelector('[data-control="target"]').classList.toggle("is-hidden", !showTarget);
-  document.querySelector('[data-control="passes"]').classList.toggle("is-hidden", !showTarget);
-  document.querySelector('[data-control="matte"]').classList.toggle("is-hidden", !showMatte);
+  setControlAvailability("quality", usesQuality, `Not used by ${codec.label}.`);
+  setControlAvailability("palette", isPalette, `Only used by PNG palette.`);
+  setControlAvailability("dither", isPalette, `Only used by PNG palette.`);
+  setControlAvailability("target", usesTarget, `Target size works with WebP, JPEG, and AVIF.`);
+  setControlAvailability(
+    "passes",
+    usesTarget && Number(els.targetInput.value) > 0,
+    usesTarget ? "Fill target size to use this." : "Target search is not used by this format.",
+  );
+  setControlAvailability("matte", usesMatte, `Only used by JPEG.`);
+
+  const summaries = {
+    webp: "WebP is the beginner-friendly default: small files, good photo quality, and transparency support.",
+    jpeg: "JPEG is best when you need maximum compatibility. It is great for photos but cannot keep transparency.",
+    png: "PNG is lossless: it keeps pixels exact. File size may be larger, but it is best for sharp graphics.",
+    "png-palette":
+      "PNG palette reduces the number of colors. It can shrink simple artwork, icons, and diagrams.",
+    avif: "AVIF can be very small, but browser support for creating AVIF from a web page is inconsistent.",
+  };
+  els.settingsSummary.textContent = summaries[codecId];
 
   els.qualityValue.value = `${els.qualityRange.value}%`;
   els.paletteValue.value = String(paletteSteps[Number(els.paletteRange.value) - 1]);
   els.passesValue.value = els.passesRange.value;
   const maxEdge = Number(els.resizeRange.value);
   els.resizeValue.value = maxEdge ? `${maxEdge}px` : "Original";
+  updatePreviewButtons();
 }
 
 function scheduleCompression() {
@@ -590,8 +640,20 @@ function scheduleCompression() {
   state.debounce = setTimeout(() => compressImage(), 380);
 }
 
+function updatePresetButtons(activeName = "") {
+  document.querySelectorAll(".preset-button").forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.preset === activeName);
+  });
+}
+
+function scheduleCustomCompression() {
+  updatePresetButtons();
+  scheduleCompression();
+}
+
 function applyPreset(name) {
   const input = (value) => document.querySelector(`input[value="${value}"]`);
+  updatePresetButtons(name);
 
   if (name === "photo") {
     input(state.supported.webp ? "webp" : "jpeg").checked = true;
@@ -647,7 +709,9 @@ function resetApp() {
   els.downloadButton.removeAttribute("href");
   els.compressButton.disabled = true;
   els.resetButton.disabled = true;
-  els.swapButton.disabled = true;
+  state.previewMode = "compare";
+  syncCompareSlider();
+  updatePreviewButtons();
   els.headerFormat.textContent = "No image loaded";
   els.headerSaving.textContent = "Ready";
   els.resultStatus.textContent = "Choose an image to begin.";
@@ -655,6 +719,7 @@ function resetApp() {
   els.savedPercent.textContent = "-";
   els.outputDimensions.textContent = "-";
   els.pixelDelta.textContent = "-";
+  updatePresetButtons();
 }
 
 els.fileInput.addEventListener("change", (event) => {
@@ -677,39 +742,32 @@ els.dropzone.addEventListener("drop", (event) => {
   handleFile(event.dataTransfer.files?.[0]);
 });
 
-els.codecGrid.addEventListener("change", scheduleCompression);
-els.qualityRange.addEventListener("input", scheduleCompression);
-els.paletteRange.addEventListener("input", scheduleCompression);
-els.resizeRange.addEventListener("input", scheduleCompression);
-els.targetInput.addEventListener("input", scheduleCompression);
-els.passesRange.addEventListener("input", scheduleCompression);
-els.ditherToggle.addEventListener("change", scheduleCompression);
-els.matteInput.addEventListener("input", scheduleCompression);
+els.codecGrid.addEventListener("change", scheduleCustomCompression);
+els.qualityRange.addEventListener("input", scheduleCustomCompression);
+els.paletteRange.addEventListener("input", scheduleCustomCompression);
+els.resizeRange.addEventListener("input", scheduleCustomCompression);
+els.targetInput.addEventListener("input", scheduleCustomCompression);
+els.passesRange.addEventListener("input", scheduleCustomCompression);
+els.ditherToggle.addEventListener("change", scheduleCustomCompression);
+els.matteInput.addEventListener("input", scheduleCustomCompression);
 els.compressButton.addEventListener("click", compressImage);
 els.resetButton.addEventListener("click", resetApp);
 els.compareSlider.addEventListener("input", () => {
   state.previewMode = "compare";
   syncCompareSlider();
+  updatePreviewButtons();
 });
 
 document.querySelectorAll(".preset-button").forEach((button) => {
   button.addEventListener("click", () => applyPreset(button.dataset.preset));
 });
 
-els.swapButton.addEventListener("click", () => {
-  const next = {
-    compare: "compressed",
-    compressed: "original",
-    original: "compare",
-  };
-  state.previewMode = next[state.previewMode];
-  els.swapButton.textContent =
-    state.previewMode === "compare"
-      ? "Swap view"
-      : state.previewMode === "compressed"
-        ? "Show original"
-        : "Compare";
+els.previewToggle.addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-view]");
+  if (!button || button.disabled) return;
+  state.previewMode = button.dataset.view;
   syncCompareSlider();
+  updatePreviewButtons();
 });
 
 window.addEventListener("beforeunload", () => {
