@@ -112,27 +112,25 @@
         <div class="preset-strip" aria-label="Compression presets">
           <button type="button" class="preset-button" data-preset="photo">
             <strong>Best photo</strong>
-            <small>Good quality, smaller file</small>
+            <small>WebP, 82% quality</small>
           </button>
           <button type="button" class="preset-button" data-preset="tiny">
             <strong>Tiny web</strong>
-            <small>Small file for fast pages</small>
+            <small>WebP, 56%, 1600px edge</small>
           </button>
           <button type="button" class="preset-button" data-preset="transparent">
             <strong>Transparent</strong>
-            <small>Keeps see-through areas</small>
+            <small>WebP, 86%, keeps alpha</small>
           </button>
           <button type="button" class="preset-button" data-preset="compat">
             <strong>Compatible</strong>
-            <small>Works almost everywhere</small>
+            <small>JPEG, 84% quality</small>
           </button>
         </div>
 
         <div class="guide-card">
-          <strong>Simple guide</strong>
           <p>
-            Photos usually work best as WebP or JPEG. Logos, screenshots, and images with transparency
-            usually work best as PNG or WebP. Grey formats are not available in your browser.
+            Tip: WebP is the best default. JPEG works almost everywhere. Grey formats are unsupported here.
           </p>
         </div>
 
@@ -230,7 +228,18 @@
 
         <div class="settings-summary" id="settingsSummary">Choose a format to see what the settings do.</div>
 
-        <div class="control-stack">
+        <label class="advanced-toggle">
+          <input id="showAllSettingsToggle" type="checkbox" />
+          <span>Show settings that do not apply</span>
+          <span
+            class="info-dot"
+            tabindex="0"
+            data-tip="Off keeps the panel short. Turn it on to see every setting and why some are inactive."
+            >i</span
+          >
+        </label>
+
+        <div class="control-stack hide-inactive" id="controlStack">
           <label class="range-row" data-control="quality">
             <span class="control-line">
               <strong

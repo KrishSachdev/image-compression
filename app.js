@@ -69,6 +69,8 @@ const els = {
   headerSaving: document.querySelector("#headerSaving"),
   supportPill: document.querySelector("#supportPill"),
   settingsSummary: document.querySelector("#settingsSummary"),
+  showAllSettingsToggle: document.querySelector("#showAllSettingsToggle"),
+  controlStack: document.querySelector("#controlStack"),
   codecGrid: document.querySelector("#codecGrid"),
   qualityRange: document.querySelector("#qualityRange"),
   qualityValue: document.querySelector("#qualityValue"),
@@ -616,12 +618,11 @@ function syncControls() {
   setControlAvailability("matte", usesMatte, `Only used by JPEG.`);
 
   const summaries = {
-    webp: "WebP is the beginner-friendly default: small files, good photo quality, and transparency support.",
-    jpeg: "JPEG is best when you need maximum compatibility. It is great for photos but cannot keep transparency.",
-    png: "PNG is lossless: it keeps pixels exact. File size may be larger, but it is best for sharp graphics.",
-    "png-palette":
-      "PNG palette reduces the number of colors. It can shrink simple artwork, icons, and diagrams.",
-    avif: "AVIF can be very small, but browser support for creating AVIF from a web page is inconsistent.",
+    webp: "WebP: best default for small files, photos, and transparency.",
+    jpeg: "JPEG: most compatible for photos, but no transparency.",
+    png: "PNG: exact pixels for screenshots, logos, and sharp graphics.",
+    "png-palette": "PNG palette: fewer colors for smaller simple graphics.",
+    avif: "AVIF: efficient, but web-page encoding support is limited.",
   };
   els.settingsSummary.textContent = summaries[codecId];
 
@@ -750,6 +751,9 @@ els.targetInput.addEventListener("input", scheduleCustomCompression);
 els.passesRange.addEventListener("input", scheduleCustomCompression);
 els.ditherToggle.addEventListener("change", scheduleCustomCompression);
 els.matteInput.addEventListener("input", scheduleCustomCompression);
+els.showAllSettingsToggle.addEventListener("change", () => {
+  els.controlStack.classList.toggle("hide-inactive", !els.showAllSettingsToggle.checked);
+});
 els.compressButton.addEventListener("click", compressImage);
 els.resetButton.addEventListener("click", resetApp);
 els.compareSlider.addEventListener("input", () => {
