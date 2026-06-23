@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Compress Lab</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+        <div>
+          <p class="eyebrow">Image compression studio</p>
+          <h1>Compress Lab</h1>
+        </div>
+      </div>
+      <div class="topbar-stats" aria-live="polite">
+        <span id="headerFormat">No image loaded</span>
+        <strong id="headerSaving">Ready</strong>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <section class="panel input-panel" aria-labelledby="inputTitle">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Input</p>
+            <h2 id="inputTitle">Source image</h2>
+          </div>
+          <button class="ghost-button" id="resetButton" type="button" disabled>Reset</button>
+        </div>
+
+        <label class="dropzone" id="dropzone" for="fileInput">
+          <input id="fileInput" type="file" accept="image/*" />
+          <canvas id="idleCanvas" width="520" height="320" aria-hidden="true"></canvas>
+          <img id="sourceThumb" alt="Uploaded source preview" />
+          <span class="drop-title">Drop an image here</span>
+          <span class="drop-subtitle">PNG, JPEG, WebP, AVIF, GIF, or SVG if your browser can decode it</span>
+        </label>
+
+        <div class="meta-grid is-hidden" id="sourceMeta">
+          <div>
+            <span>File size</span>
+            <strong id="sourceSize">-</strong>
+          </div>
+          <div>
+            <span>Dimensions</span>
+            <strong id="sourceDimensions">-</strong>
+          </div>
+          <div>
+            <span>Type</span>
+            <strong id="sourceType">-</strong>
+          </div>
+          <div>
+            <span>Alpha</span>
+            <strong id="sourceAlpha">-</strong>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel controls-panel" aria-labelledby="controlsTitle">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Output</p>
+            <h2 id="controlsTitle">Compression</h2>
+          </div>
+          <span class="support-pill" id="supportPill">Checking codecs</span>
+        </div>
+
+        <div class="preset-strip" aria-label="Compression presets">
+          <button type="button" class="preset-button" data-preset="photo">Best photo</button>
+          <button type="button" class="preset-button" data-preset="tiny">Tiny web</button>
+          <button type="button" class="preset-button" data-preset="transparent">Transparent</button>
+          <button type="button" class="preset-button" data-preset="compat">Compatible</button>
+        </div>
+
+        <fieldset class="codec-grid" id="codecGrid">
+          <legend>Choose a codec</legend>
+
+          <label class="codec-card">
+            <input type="radio" name="codec" value="webp" checked />
+            <span>
+              <strong>WebP</strong>
+              <small>Lossy, alpha-friendly</small>
+            </span>
+          </label>
+
+          <label class="codec-card">
+            <input type="radio" name="codec" value="jpeg" />
+            <span>
+              <strong>JPEG</strong>
+              <small>Lossy, universal</small>
+            </span>
+          </label>
+
+          <label class="codec-card">
+            <input type="radio" name="codec" value="png" />
+            <span>
+              <strong>PNG</strong>
+              <small>Lossless pixels</small>
+            </span>
+          </label>
+
+          <label class="codec-card">
+            <input type="radio" name="codec" value="png-palette" />
+            <span>
+              <strong>PNG palette</strong>
+              <small>Lossy colors</small>
+            </span>
+          </label>
+
+          <label class="codec-card" data-codec-card="avif">
+            <input type="radio" name="codec" value="avif" />
+            <span>
+              <strong>AVIF</strong>
+              <small>Lossy, experimental</small>
+            </span>
+          </label>
+        </fieldset>
+
+        <div class="control-stack">
+          <label class="range-row" data-control="quality">
+            <span>
+              <strong>Quality</strong>
+              <output id="qualityValue" for="qualityRange">82%</output>
+            </span>
+            <input id="qualityRange" type="range" min="5" max="100" step="1" value="82" />
+          </label>
+
+          <label class="range-row is-hidden" data-control="palette">
+            <span>
+              <strong>Color count</strong>
+              <output id="paletteValue" for="paletteRange">128</output>
+            </span>
+            <input id="paletteRange" type="range" min="1" max="8" step="1" value="7" />
+          </label>
+
+          <label class="range-row">
+            <span>
+              <strong>Max edge</strong>
+              <output id="resizeValue" for="resizeRange">Original</output>
+            </span>
+            <input id="resizeRange" type="range" min="0" max="4096" step="64" value="0" />
+          </label>
+
+          <label class="target-row" data-control="target">
+            <span>
+              <strong>Target size</strong>
+              <small>Optional</small>
+            </span>
+            <div>
+              <input id="targetInput" type="number" min="1" max="50000" step="1" placeholder="Auto" />
+              <span>KB</span>
+            </div>
+          </label>
+
+          <label class="range-row" data-control="passes">
+            <span>
+              <strong>Search passes</strong>
+              <output id="passesValue" for="passesRange">8</output>
+            </span>
+            <input id="passesRange" type="range" min="4" max="12" step="1" value="8" />
+          </label>
+
+          <label class="check-row is-hidden" data-control="dither">
+            <input id="ditherToggle" type="checkbox" checked />
+            <span>
+              <strong>Dither palette</strong>
+              <small>Smoother gradients, slightly more texture</small>
+            </span>
+          </label>
+
+          <label class="target-row" data-control="matte">
+            <span>
+              <strong>JPEG matte</strong>
+              <small>For transparent pixels</small>
+            </span>
+            <input id="matteInput" type="color" value="#ffffff" />
+          </label>
+        </div>
+
+        <button class="primary-button" id="compressButton" type="button" disabled>
+          Compress image
+        </button>
+      </section>
+
+      <section class="panel result-panel" aria-labelledby="resultTitle">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Result</p>
+            <h2 id="resultTitle">Preview</h2>
+          </div>
+          <button class="ghost-button" id="swapButton" type="button" disabled>Swap view</button>
+        </div>
+
+        <div class="compare-box" id="compareBox">
+          <div class="empty-result" id="emptyResult">
+            <strong>Output preview</strong>
+            <span>The compressed image appears here.</span>
+          </div>
+          <img id="beforeImage" alt="Original preview" />
+          <img id="afterImage" alt="Compressed preview" />
+          <input
+            id="compareSlider"
+            class="compare-slider"
+            type="range"
+            min="0"
+            max="100"
+            value="50"
+            aria-label="Compare original and compressed image"
+          />
+          <span class="compare-label compare-label-left">Original</span>
+          <span class="compare-label compare-label-right">Compressed</span>
+        </div>
+
+        <div class="result-status" id="resultStatus">Choose an image to begin.</div>
+
+        <div class="metric-grid">
+          <div>
+            <span>Output size</span>
+            <strong id="outputSize">-</strong>
+          </div>
+          <div>
+            <span>Saved</span>
+            <strong id="savedPercent">-</strong>
+          </div>
+          <div>
+            <span>Dimensions</span>
+            <strong id="outputDimensions">-</strong>
+          </div>
+          <div>
+            <span>Pixel delta</span>
+            <strong id="pixelDelta">-</strong>
+          </div>
+        </div>
+
+        <a class="download-button is-disabled" id="downloadButton" href="#" download>
+          Download output
+        </a>
+      </section>
+    </main>
+
+    <section class="format-band" aria-labelledby="formatTitle">
+      <div>
+        <p class="eyebrow">Codec notes</p>
+        <h2 id="formatTitle">Pick the compression goal first</h2>
+      </div>
+      <div class="note-grid">
+        <article>
+          <strong>Lossless</strong>
+          <p>PNG keeps decoded pixels exact and usually helps graphics, screenshots, and art with sharp edges.</p>
+        </article>
+        <article>
+          <strong>Lossy</strong>
+          <p>JPEG, WebP, and AVIF trade imperceptible detail for much smaller photo files.</p>
+        </article>
+        <article>
+          <strong>Palette</strong>
+          <p>PNG palette compression reduces the color set, which is useful for icons, diagrams, and flat artwork.</p>
+        </article>
+        <article>
+          <strong>Standards edge</strong>
+          <p>JPEG XL and neural codecs are important, but normal browsers do not expose reliable client-side encoders yet.</p>
+        </article>
+      </div>
+    </section>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <script src="app.js" defer></script>
+  </body>
+</html>
