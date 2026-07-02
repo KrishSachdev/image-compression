@@ -4,7 +4,24 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Compress Lab</title>
+    <meta
+      name="description"
+      content="Private, in-browser image compression studio. Batch compress, compare, and convert images without uploading them anywhere."
+    />
+    <meta name="theme-color" content="#f5f8f6" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0d1412" media="(prefers-color-scheme: dark)" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" href="icons/icon-192.png" type="image/png" />
+    <link rel="apple-touch-icon" href="icons/icon-192.png" />
     <link rel="stylesheet" href="styles.css" />
+    <script>
+      /* Prevent flash of wrong theme before app.js loads */
+      (function(){
+        var t=localStorage.getItem('cl-theme');
+        if(t==='dark'||(!t&&matchMedia('(prefers-color-scheme:dark)').matches))
+          document.documentElement.setAttribute('data-theme','dark');
+      })();
+    </script>
   </head>
   <body>
     <header class="topbar">
@@ -19,9 +36,38 @@
           <h1>Compress Lab</h1>
         </div>
       </div>
-      <div class="topbar-stats" aria-live="polite">
-        <span id="headerFormat">No image loaded</span>
-        <strong id="headerSaving">Ready</strong>
+      <div class="topbar-end">
+        <div class="topbar-stats" aria-live="polite">
+          <span id="headerFormat">No image loaded</span>
+          <strong id="headerSaving">Ready</strong>
+        </div>
+        <button
+          class="ghost-button theme-toggle"
+          id="darkToggle"
+          type="button"
+          aria-label="Toggle dark mode"
+        >
+          <!-- Moon: visible in light mode -->
+          <svg class="icon-moon" xmlns="http://www.w3.org/2000/svg" width="18" height="18"
+               viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+          </svg>
+          <!-- Sun: visible in dark mode -->
+          <svg class="icon-sun" xmlns="http://www.w3.org/2000/svg" width="18" height="18"
+               viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="5"/>
+            <line x1="12" y1="1"  x2="12" y2="3"/>
+            <line x1="12" y1="21" x2="12" y2="23"/>
+            <line x1="4.22"  y1="4.22"  x2="5.64"  y2="5.64"/>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+            <line x1="1"  y1="12" x2="3"  y2="12"/>
+            <line x1="21" y1="12" x2="23" y2="12"/>
+            <line x1="4.22"  y1="19.78" x2="5.64"  y2="18.36"/>
+            <line x1="18.36" y1="5.64"  x2="19.78" y2="4.22"/>
+          </svg>
+        </button>
       </div>
     </header>
 
@@ -35,8 +81,8 @@
               <span
                 class="info-dot"
                 tabindex="0"
-                data-tip="The original image you upload. It stays in your browser."
-                >i</span
+                data-tip="The images you add. They stay in your browser — nothing is uploaded."
+                ></span
               >
             </h2>
           </div>
@@ -44,43 +90,97 @@
         </div>
 
         <label class="dropzone" id="dropzone" for="fileInput">
-          <input id="fileInput" type="file" accept="image/*" />
+          <input id="fileInput" type="file" accept="image/*" multiple />
           <canvas id="idleCanvas" width="520" height="320" aria-hidden="true"></canvas>
           <img id="sourceThumb" alt="Uploaded source preview" />
-          <span class="drop-title">Drop an image here</span>
-          <span class="drop-subtitle">PNG, JPEG, WebP, AVIF, GIF, or SVG if your browser can decode it</span>
+          <span class="drop-title">Drop images here</span>
+          <span class="drop-subtitle">PNG, JPEG, WebP, AVIF, GIF, or SVG — one file or a whole batch. You can also paste with Ctrl+V.</span>
         </label>
+
+        <div class="edit-strip is-hidden" id="editStrip" role="group" aria-label="Rotate and flip">
+          <button type="button" data-edit="rotl" title="Rotate 90° left" aria-label="Rotate 90 degrees left">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="1 4 1 10 7 10"/>
+              <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+            </svg>
+          </button>
+          <button type="button" data-edit="rotr" title="Rotate 90° right" aria-label="Rotate 90 degrees right">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="23 4 23 10 17 10"/>
+              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+            </svg>
+          </button>
+          <button type="button" data-edit="fliph" title="Flip horizontally" aria-label="Flip horizontally">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M8 7 4 12l4 5"/>
+              <path d="m16 7 4 5-4 5"/>
+              <line x1="12" y1="3" x2="12" y2="21" stroke-dasharray="2 3"/>
+            </svg>
+          </button>
+          <button type="button" data-edit="flipv" title="Flip vertically" aria-label="Flip vertically">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M7 8 12 4l5 4"/>
+              <path d="m7 16 5 4 5-4"/>
+              <line x1="3" y1="12" x2="21" y2="12" stroke-dasharray="2 3"/>
+            </svg>
+          </button>
+          <small>Edits bake in before compression</small>
+        </div>
 
         <div class="meta-grid is-hidden" id="sourceMeta">
           <div>
             <span
               >File size
-              <span class="info-dot" tabindex="0" data-tip="How large the uploaded file is before compression.">i</span>
+              <span class="info-dot" tabindex="0" data-tip="How large the uploaded file is before compression."></span>
             </span>
             <strong id="sourceSize">-</strong>
           </div>
           <div>
             <span
               >Dimensions
-              <span class="info-dot" tabindex="0" data-tip="The width and height of the image in pixels.">i</span>
+              <span class="info-dot" tabindex="0" data-tip="The width and height of the image in pixels, after any rotation."></span>
             </span>
             <strong id="sourceDimensions">-</strong>
           </div>
           <div>
             <span
               >Type
-              <span class="info-dot" tabindex="0" data-tip="The current image file format, such as PNG or JPEG.">i</span>
+              <span class="info-dot" tabindex="0" data-tip="The current image file format, such as PNG or JPEG."></span>
             </span>
             <strong id="sourceType">-</strong>
           </div>
           <div>
             <span
               >Alpha
-              <span class="info-dot" tabindex="0" data-tip="Alpha means transparency. Logos and stickers often use it.">i</span>
+              <span class="info-dot" tabindex="0" data-tip="Alpha means transparency. Logos and stickers often use it."></span>
             </span>
             <strong id="sourceAlpha">-</strong>
           </div>
         </div>
+
+        <section class="queue" id="queuePanel" hidden aria-label="Batch queue">
+          <div class="queue-head">
+            <div class="section-label">
+              <strong>Batch queue</strong>
+              <span
+                class="info-dot"
+                tabindex="0"
+                data-tip="Every image you added. Click one to preview it; the × removes it from the batch."
+                ></span
+              >
+            </div>
+            <span class="queue-summary" id="queueSummary"></span>
+          </div>
+          <ul class="queue-list" id="queueList"></ul>
+          <div class="queue-actions">
+            <button class="ghost-button" id="applyAllButton" type="button">Apply settings to all</button>
+            <button class="ghost-button" id="zipButton" type="button" disabled>Download all (.zip)</button>
+          </div>
+        </section>
       </section>
 
       <section class="panel controls-panel" aria-labelledby="controlsTitle">
@@ -93,7 +193,7 @@
                 class="info-dot"
                 tabindex="0"
                 data-tip="Choose how the output image should be saved and how much detail to keep."
-                >i</span
+                ></span
               >
             </h2>
           </div>
@@ -106,32 +206,26 @@
             class="info-dot"
             tabindex="0"
             data-tip="These buttons choose a good format and settings for common jobs. You can still change everything below."
-            >i</span
+            ></span
           >
         </div>
         <div class="preset-strip" aria-label="Compression presets">
-          <button type="button" class="preset-button" data-preset="photo">
+          <button type="button" class="preset-button" data-preset="photo" aria-pressed="false">
             <strong>Best photo</strong>
             <small>WebP, 82% quality</small>
           </button>
-          <button type="button" class="preset-button" data-preset="tiny">
+          <button type="button" class="preset-button" data-preset="tiny" aria-pressed="false">
             <strong>Tiny web</strong>
             <small>WebP, 56%, 1600px edge</small>
           </button>
-          <button type="button" class="preset-button" data-preset="transparent">
+          <button type="button" class="preset-button" data-preset="transparent" aria-pressed="false">
             <strong>Transparent</strong>
             <small>WebP, 86%, keeps alpha</small>
           </button>
-          <button type="button" class="preset-button" data-preset="compat">
+          <button type="button" class="preset-button" data-preset="compat" aria-pressed="false">
             <strong>Compatible</strong>
             <small>JPEG, 84% quality</small>
           </button>
-        </div>
-
-        <div class="guide-card">
-          <p>
-            Tip: WebP is the best default. JPEG works almost everywhere. Grey formats are unsupported here.
-          </p>
         </div>
 
         <fieldset class="codec-grid" id="codecGrid">
@@ -141,7 +235,7 @@
               class="info-dot"
               tabindex="0"
               data-tip="A format is the type of file you will download, like JPEG, PNG, or WebP."
-              >i</span
+              ></span
             >
           </legend>
 
@@ -154,7 +248,7 @@
                   class="info-dot"
                   tabindex="0"
                   data-tip="A modern web format. Usually a strong default for photos and transparent images."
-                  >i</span
+                  ></span
                 >
               </strong>
               <small>Modern default</small>
@@ -170,7 +264,7 @@
                   class="info-dot"
                   tabindex="0"
                   data-tip="Very compatible and good for photos. It does not keep transparency."
-                  >i</span
+                  ></span
                 >
               </strong>
               <small>Most compatible photo format</small>
@@ -186,7 +280,7 @@
                   class="info-dot"
                   tabindex="0"
                   data-tip="Keeps the image pixels exact. Best for sharp graphics, screenshots, and transparency."
-                  >i</span
+                  ></span
                 >
               </strong>
               <small>Lossless, exact pixels</small>
@@ -202,7 +296,7 @@
                   class="info-dot"
                   tabindex="0"
                   data-tip="A PNG that uses fewer colors. Great for simple graphics, not ideal for detailed photos."
-                  >i</span
+                  ></span
                 >
               </strong>
               <small>Fewer colors, smaller PNG</small>
@@ -218,7 +312,7 @@
                   class="info-dot"
                   tabindex="0"
                   data-tip="A very efficient modern format. It is grey when this browser cannot create AVIF files from the page."
-                  >i</span
+                  ></span
                 >
               </strong>
               <small>Efficient, browser-dependent</small>
@@ -228,6 +322,19 @@
 
         <div class="settings-summary" id="settingsSummary">Choose a format to see what the settings do.</div>
 
+        <div class="bakeoff">
+          <button class="ghost-button bakeoff-button" id="bakeoffButton" type="button">
+            Find smallest format
+            <span
+              class="info-dot"
+              tabindex="0"
+              data-tip="Encodes the current image in every available format at the same quality and shows which file comes out smallest."
+              ></span
+            >
+          </button>
+          <div class="bakeoff-results" id="bakeoffResults" hidden></div>
+        </div>
+
         <label class="advanced-toggle">
           <input id="showAllSettingsToggle" type="checkbox" />
           <span>Show settings that do not apply</span>
@@ -235,7 +342,7 @@
             class="info-dot"
             tabindex="0"
             data-tip="Off keeps the panel short. Turn it on to see every setting and why some are inactive."
-            >i</span
+            ></span
           >
         </label>
 
@@ -248,7 +355,7 @@
                   class="info-dot"
                   tabindex="0"
                   data-tip="Higher quality keeps more detail. Lower quality makes a smaller file."
-                  >i</span
+                  ></span
                 >
               </strong>
               <output id="qualityValue" for="qualityRange">82%</output>
@@ -264,42 +371,68 @@
                 <span
                   class="info-dot"
                   tabindex="0"
-                  data-tip="The number of colors kept in a palette PNG. Fewer colors can mean a smaller file."
-                  >i</span
+                  data-tip="The maximum number of colors kept in a palette PNG. Fewer colors can mean a smaller file."
+                  ></span
                 >
               </strong>
-              <output id="paletteValue" for="paletteRange">128</output>
+              <output id="paletteValue" for="paletteRange">1728</output>
             </span>
             <input id="paletteRange" type="range" min="1" max="8" step="1" value="7" />
             <small class="setting-scope">Used only by PNG palette.</small>
           </label>
 
-          <label class="range-row">
+          <div class="range-row resize-row" id="resizeGroup" data-mode="edge">
             <span class="control-line">
               <strong
-                >Max edge
+                >Resize
                 <span
                   class="info-dot"
                   tabindex="0"
-                  data-tip="The largest side of the output image. Example: 1600px keeps the wider side at 1600 pixels."
-                  >i</span
+                  data-tip="Shrink the output. Max edge limits the longest side, Exact sets width and height, Percent scales the whole image. It never upscales."
+                  ></span
                 >
               </strong>
-              <output id="resizeValue" for="resizeRange">Original</output>
+              <span class="mode-switch" id="resizeModeSwitch" role="group" aria-label="Resize mode">
+                <button type="button" data-mode="edge" class="is-active" aria-pressed="true">Max edge</button>
+                <button type="button" data-mode="exact" aria-pressed="false">Exact</button>
+                <button type="button" data-mode="percent" aria-pressed="false">Percent</button>
+              </span>
             </span>
-            <input id="resizeRange" type="range" min="0" max="4096" step="64" value="0" />
-            <small class="setting-scope">Used by every format. Original means no resize.</small>
-          </label>
+            <div class="resize-mode" data-for="edge">
+              <span class="control-line">
+                <small>Largest side of the output</small>
+                <output id="resizeValue" for="resizeRange">Original</output>
+              </span>
+              <input id="resizeRange" type="range" min="0" max="4096" step="64" value="0" aria-label="Maximum edge in pixels" />
+            </div>
+            <div class="resize-mode" data-for="exact" hidden>
+              <div class="exact-inputs">
+                <input id="exactW" type="number" min="1" max="20000" step="1" placeholder="Width" aria-label="Exact width in pixels" />
+                <span aria-hidden="true">×</span>
+                <input id="exactH" type="number" min="1" max="20000" step="1" placeholder="Height" aria-label="Exact height in pixels" />
+                <label class="lock-label"><input id="aspectLock" type="checkbox" checked /> Lock ratio</label>
+              </div>
+              <small class="exact-note" id="exactNote"></small>
+            </div>
+            <div class="resize-mode" data-for="percent" hidden>
+              <span class="control-line">
+                <small>Scale of the original</small>
+                <output id="percentValue" for="percentRange">100%</output>
+              </span>
+              <input id="percentRange" type="range" min="1" max="100" step="1" value="100" aria-label="Scale in percent" />
+            </div>
+            <small class="setting-scope">Used by every format. Never upscales.</small>
+          </div>
 
           <label class="target-row" data-control="target">
             <span class="control-line">
               <strong
-                >Target size
+                >Target
                 <span
                   class="info-dot"
                   tabindex="0"
                   data-tip="Optional file-size goal. The app will lower quality until it gets close to this size."
-                  >i</span
+                  ></span
                 >
               </strong>
               <small>Optional</small>
@@ -314,12 +447,12 @@
           <label class="range-row" data-control="passes">
             <span class="control-line">
               <strong
-                >Search passes
+                >Passes
                 <span
                   class="info-dot"
                   tabindex="0"
                   data-tip="How many tries the app uses when chasing a target file size. More tries can be slightly more accurate."
-                  >i</span
+                  ></span
                 >
               </strong>
               <output id="passesValue" for="passesRange">8</output>
@@ -332,12 +465,12 @@
             <input id="ditherToggle" type="checkbox" checked />
             <span>
               <strong
-                >Dither palette
+                >Dither
                 <span
                   class="info-dot"
                   tabindex="0"
                   data-tip="Adds tiny mixed pixels so a low-color image looks smoother."
-                  >i</span
+                  ></span
                 >
               </strong>
               <small>Smoother gradients, slightly more texture</small>
@@ -347,18 +480,18 @@
           <label class="target-row" data-control="matte">
             <span class="control-line">
               <strong
-                >JPEG matte
+                >Matte
                 <span
                   class="info-dot"
                   tabindex="0"
                   data-tip="JPEG cannot store transparency, so transparent pixels are filled with this color."
-                  >i</span
+                  ></span
                 >
               </strong>
-              <small>For transparent pixels</small>
+              <small>Transparency fill</small>
             </span>
             <input id="matteInput" type="color" value="#ffffff" />
-            <small class="setting-scope">Used only by JPEG.</small>
+            <small class="setting-scope">JPEG only.</small>
           </label>
         </div>
 
@@ -376,15 +509,23 @@
               <span
                 class="info-dot"
                 tabindex="0"
-                data-tip="Compare the uploaded image with the compressed output before downloading."
-                >i</span
+                data-tip="Compare the uploaded image with the compressed output. Scroll to zoom, drag to pan when zoomed."
+                ></span
               >
             </h2>
           </div>
-          <div class="preview-toggle" id="previewToggle" aria-label="Preview mode">
-            <button type="button" data-view="compare" class="is-active" disabled>Compare</button>
-            <button type="button" data-view="original" disabled>Original</button>
-            <button type="button" data-view="compressed" disabled>Compressed</button>
+          <div class="preview-tools">
+            <div class="preview-toggle" id="previewToggle" aria-label="Preview mode">
+              <button type="button" data-view="compare" class="is-active" aria-pressed="true" disabled>Compare</button>
+              <button type="button" data-view="original" aria-pressed="false" disabled>Original</button>
+              <button type="button" data-view="compressed" aria-pressed="false" disabled>Compressed</button>
+            </div>
+            <div class="zoom-bar" id="zoomBar" aria-label="Zoom and loupe">
+              <button type="button" data-zoom="out" aria-label="Zoom out" disabled>−</button>
+              <button type="button" data-zoom="reset" id="zoomLabel" title="Reset zoom" disabled>100%</button>
+              <button type="button" data-zoom="in" aria-label="Zoom in" disabled>+</button>
+              <button type="button" id="loupeToggle" aria-pressed="false" disabled>Loupe</button>
+            </div>
           </div>
         </div>
 
@@ -393,8 +534,22 @@
             <strong>Output preview</strong>
             <span>The compressed image appears here.</span>
           </div>
-          <img id="beforeImage" alt="Original preview" />
-          <img id="afterImage" alt="Compressed preview" />
+          <div class="compare-viewport" id="compareViewport">
+            <div class="compare-pane" id="beforePane">
+              <div class="zoom-layer">
+                <img id="beforeImage" alt="Original preview" />
+              </div>
+            </div>
+            <div class="compare-pane" id="afterPane">
+              <div class="zoom-layer">
+                <img id="afterImage" alt="Compressed preview" />
+              </div>
+            </div>
+            <span class="compare-divider" id="compareDivider" aria-hidden="true">
+              <span></span>
+            </span>
+          </div>
+          <canvas class="loupe" id="loupeCanvas" width="180" height="180" hidden aria-hidden="true"></canvas>
           <input
             id="compareSlider"
             class="compare-slider"
@@ -408,29 +563,41 @@
           <span class="compare-label compare-label-right">Compressed</span>
         </div>
 
-        <div class="result-status" id="resultStatus">Choose an image to begin.</div>
+        <div class="result-status" id="resultStatus" aria-live="polite">Choose an image to begin.</div>
 
         <div class="metric-grid">
           <div>
             <span
               >Output size
-              <span class="info-dot" tabindex="0" data-tip="How large the downloaded compressed file will be.">i</span>
+              <span class="info-dot" tabindex="0" data-tip="How large the downloaded compressed file will be."></span>
             </span>
             <strong id="outputSize">-</strong>
           </div>
           <div>
             <span
               >Saved
-              <span class="info-dot" tabindex="0" data-tip="How much smaller the output is compared with the upload.">i</span>
+              <span class="info-dot" tabindex="0" data-tip="How much smaller the output is compared with the upload."></span>
             </span>
             <strong id="savedPercent">-</strong>
           </div>
           <div>
             <span
               >Dimensions
-              <span class="info-dot" tabindex="0" data-tip="The width and height of the output image.">i</span>
+              <span class="info-dot" tabindex="0" data-tip="The width and height of the output image."></span>
             </span>
             <strong id="outputDimensions">-</strong>
+          </div>
+          <div>
+            <span
+              >Similarity
+              <span
+                class="info-dot"
+                tabindex="0"
+                data-tip="Structural similarity (SSIM) to the original. 100% means visually identical."
+                ></span
+              >
+            </span>
+            <strong id="ssimValue">-</strong>
           </div>
           <div>
             <span
@@ -439,21 +606,46 @@
                 class="info-dot"
                 tabindex="0"
                 data-tip="A rough difference score. Lower means closer to the original."
-                >i</span
+                ></span
               >
             </span>
             <strong id="pixelDelta">-</strong>
           </div>
         </div>
 
-        <a class="download-button is-disabled" id="downloadButton" href="#" download>
-          Download output
-        </a>
+        <div class="result-actions">
+          <a class="download-button is-disabled" id="downloadButton" download aria-disabled="true">
+            Download output
+          </a>
+          <button class="ghost-button copy-button" id="copyButton" type="button" disabled>
+            Copy
+          </button>
+        </div>
+
+        <section class="history is-hidden" id="historyPanel" aria-label="Session history">
+          <div class="section-label">
+            <strong>Session history</strong>
+            <span
+              class="info-dot"
+              tabindex="0"
+              data-tip="Recent compressions from this session. Click one to re-apply its settings."
+              ></span
+            >
+          </div>
+          <ul class="history-list" id="historyList"></ul>
+        </section>
       </section>
     </main>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-    <script src="app.js" defer></script>
+    <script src="js/state.js" defer></script>
+    <script src="js/codecs.js" defer></script>
+    <script src="js/zip.js" defer></script>
+    <script src="js/worker.js" defer></script>
+    <script src="js/imageio.js" defer></script>
+    <script src="js/compare.js" defer></script>
+    <script src="js/batch.js" defer></script>
+    <script src="js/app.js" defer></script>
   </body>
 </html>

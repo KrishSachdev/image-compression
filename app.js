@@ -41,7 +41,10 @@ const codecs = {
   },
 };
 
-const paletteSteps = [2, 4, 8, 16, 32, 64, 128, 256];
+// Per-channel quantization levels for each slider stop. The color count shown
+// to the user is levels³ (the maximum distinct colors a uniform palette holds),
+// so the displayed number is the value actually applied — no hidden cube-root.
+const paletteLevels = [2, 3, 4, 5, 6, 8, 12, 16];
 
 const state = {
   file: null,
@@ -52,7 +55,9 @@ const state = {
   supported: {},
   previewMode: "compare",
   busy: false,
+  rerun: false,
   debounce: 0,
+  animFrameId: 0,
 };
 
 const els = {
@@ -88,9 +93,9 @@ const els = {
   previewToggle: document.querySelector("#previewToggle"),
   compareBox: document.querySelector("#compareBox"),
   compareSlider: document.querySelector("#compareSlider"),
+  compareDivider: document.querySelector("#compareDivider"),
   beforeImage: document.querySelector("#beforeImage"),
   afterImage: document.querySelector("#afterImage"),
-  emptyResult: document.querySelector("#emptyResult"),
   resultStatus: document.querySelector("#resultStatus"),
   outputSize: document.querySelector("#outputSize"),
   savedPercent: document.querySelector("#savedPercent"),
@@ -98,6 +103,7 @@ const els = {
   pixelDelta: document.querySelector("#pixelDelta"),
   downloadButton: document.querySelector("#downloadButton"),
   toast: document.querySelector("#toast"),
+  darkToggle: document.querySelector("#darkToggle"),
 };
 
 function selectedCodecId() {
@@ -106,6 +112,18 @@ function selectedCodecId() {
 
 function selectedCodec() {
   return codecs[selectedCodecId()];
+}
+
+// Single place that selects a codec radio, so support/disabled handling and the
+// "does this input exist" check are not copy-pasted across the file.
+function setCodec(id) {
+  const input = document.querySelector(`input[name="codec"][value="${id}"]`);
+  if (input) input.checked = true;
+  return Boolean(input);
+}
+
+function selectedLevels() {
+  return paletteLevels[Number(els.paletteRange.value) - 1];
 }
 
 function formatBytes(bytes) {
@@ -133,6 +151,12 @@ function setBusy(isBusy) {
   document.body.classList.toggle("is-busy", isBusy);
   els.compressButton.disabled = !state.image || isBusy;
   els.compressButton.textContent = isBusy ? "Compressing..." : "Compress image";
+}
+
+function setDownloadEnabled(enabled) {
+  els.downloadButton.classList.toggle("is-disabled", !enabled);
+  els.downloadButton.setAttribute("aria-disabled", String(!enabled));
+  if (!enabled) els.downloadButton.removeAttribute("href");
 }
 
 function canvasToBlob(canvas, mime, quality) {
@@ -186,7 +210,7 @@ async function checkCodecSupport() {
   });
 
   if (!state.supported.webp) {
-    document.querySelector('input[value="jpeg"]').checked = true;
+    setCodec("jpeg");
   }
 
   const count = Object.values(state.supported).filter(Boolean).length;
@@ -197,28 +221,41 @@ async function checkCodecSupport() {
 }
 
 function drawIdleCanvas() {
-  const canvas = els.idleCanvas;
-  const ctx = canvas.getContext("2d");
-  const width = canvas.width;
-  const height = canvas.height;
-  ctx.clearRect(0, 0, width, height);
-  ctx.fillStyle = "#edf3ef";
-  ctx.fillRect(0, 0, width, height);
-
-  const now = performance.now() / 900;
-  const cell = 18;
-  for (let y = -cell; y < height + cell; y += cell) {
-    for (let x = -cell; x < width + cell; x += cell) {
-      const wave = Math.sin(x * 0.026 + y * 0.018 + now);
-      const packed = Math.max(4, Math.round(cell - (wave + 1) * 5));
-      ctx.fillStyle = wave > 0.45 ? "#0f766e" : wave < -0.45 ? "#db5a4f" : "#ffffff";
-      ctx.globalAlpha = wave > 0.45 || wave < -0.45 ? 0.18 : 0.78;
-      ctx.fillRect(x + (cell - packed) / 2, y + (cell - packed) / 2, packed, packed);
-    }
+  // Stop loop once an image is loaded; resetApp() restarts it.
+  if (els.dropzone.classList.contains("has-image")) {
+    state.animFrameId = 0;
+    return;
   }
 
-  ctx.globalAlpha = 1;
-  requestAnimationFrame(drawIdleCanvas);
+  // Skip actual draw while tab is hidden to save CPU.
+  if (document.visibilityState !== "hidden") {
+    const canvas = els.idleCanvas;
+    const ctx = canvas.getContext("2d");
+    const width = canvas.width;
+    const height = canvas.height;
+    ctx.clearRect(0, 0, width, height);
+    const dark = document.documentElement.dataset.theme === "dark";
+    ctx.fillStyle = dark ? "#172220" : "#edf3ef";
+    ctx.fillRect(0, 0, width, height);
+
+    const now = performance.now() / 900;
+    const cell = 18;
+    const colHigh = dark ? "#2dd4bf" : "#0f766e";
+    const colLow  = dark ? "#f87171" : "#db5a4f";
+    const colMid  = dark ? "#1c3530" : "#ffffff";
+    for (let y = -cell; y < height + cell; y += cell) {
+      for (let x = -cell; x < width + cell; x += cell) {
+        const wave = Math.sin(x * 0.026 + y * 0.018 + now);
+        const packed = Math.max(4, Math.round(cell - (wave + 1) * 5));
+        ctx.fillStyle = wave > 0.45 ? colHigh : wave < -0.45 ? colLow : colMid;
+        ctx.globalAlpha = wave > 0.45 || wave < -0.45 ? 0.18 : 0.78;
+        ctx.fillRect(x + (cell - packed) / 2, y + (cell - packed) / 2, packed, packed);
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  state.animFrameId = requestAnimationFrame(drawIdleCanvas);
 }
 
 function getTargetDimensions() {
@@ -254,7 +291,7 @@ function makeCanvas({ quantize = false } = {}) {
   ctx.drawImage(state.image, 0, 0, width, height);
 
   if (quantize) {
-    quantizeCanvas(canvas, paletteSteps[Number(els.paletteRange.value) - 1], els.ditherToggle.checked);
+    quantizeCanvas(canvas, selectedLevels(), els.ditherToggle.checked);
   }
 
   return canvas;
@@ -272,11 +309,10 @@ function distributeError(buffer, index, error, factor) {
   buffer[index + 2] += error[2] * factor;
 }
 
-function quantizeCanvas(canvas, colorCount, shouldDither) {
+function quantizeCanvas(canvas, levels, shouldDither) {
   const ctx = canvas.getContext("2d", { willReadFrequently: true });
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
   const data = imageData.data;
-  const levels = Math.max(2, Math.round(Math.cbrt(colorCount)));
   const pixelCount = canvas.width * canvas.height;
   const useDither = shouldDither && pixelCount <= 3000000;
 
@@ -404,7 +440,14 @@ function outputName(codec) {
 }
 
 async function compressImage() {
-  if (!state.image || state.busy) return;
+  if (!state.image) return;
+
+  // If a run is already in flight, remember that settings changed and re-run
+  // once it finishes instead of silently dropping the latest request.
+  if (state.busy) {
+    state.rerun = true;
+    return;
+  }
 
   const codec = selectedCodec();
   if (!state.supported[selectedCodecId()]) {
@@ -417,7 +460,9 @@ async function compressImage() {
   try {
     const needsPalette = selectedCodecId() === "png-palette";
     const canvas = makeCanvas({ quantize: needsPalette });
-    const referenceCanvas = makeCanvas({ quantize: false });
+    // Only palette mode needs a separate un-quantized reference; for every other
+    // codec the working canvas already is the reference, so skip the second draw.
+    const referenceCanvas = needsPalette ? makeCanvas({ quantize: false }) : canvas;
     const targetKB = Number(els.targetInput.value);
     const quality = Number(els.qualityRange.value) / 100;
     const passes = Number(els.passesRange.value);
@@ -449,7 +494,7 @@ async function compressImage() {
     els.afterImage.src = state.outputUrl;
     els.downloadButton.href = state.outputUrl;
     els.downloadButton.download = outputName(codec);
-    els.downloadButton.classList.remove("is-disabled");
+    setDownloadEnabled(true);
     els.compareBox.classList.add("has-output");
     updatePreviewButtons();
 
@@ -476,6 +521,13 @@ async function compressImage() {
     els.resultStatus.textContent = "Compression failed. Try another format or smaller image.";
   } finally {
     setBusy(false);
+    // Coalesce any changes that arrived while we were busy into one more run.
+    if (state.rerun && state.image) {
+      state.rerun = false;
+      compressImage();
+    } else {
+      state.rerun = false;
+    }
   }
 }
 
@@ -515,11 +567,29 @@ async function handleFile(file) {
     return;
   }
 
+  // A dimensionless source (commonly an SVG with no width/height) decodes to a
+  // 0x0 image, which would produce an empty canvas and a failed encode. Bail
+  // with a clear message instead of silently breaking.
+  if (!state.image.naturalWidth || !state.image.naturalHeight) {
+    showToast("That image has no fixed pixel size (often a dimensionless SVG). Try a raster image, or an SVG that has width and height.");
+    URL.revokeObjectURL(state.sourceUrl);
+    state.sourceUrl = "";
+    state.image = null;
+    return;
+  }
+
   const sourceCanvas = document.createElement("canvas");
   sourceCanvas.width = state.image.naturalWidth;
   sourceCanvas.height = state.image.naturalHeight;
   sourceCanvas.getContext("2d").drawImage(state.image, 0, 0);
   state.hasAlpha = scanAlpha(sourceCanvas);
+
+  // Match both panel containers to the image ratio – eliminates letterboxing.
+  const imgRatio = `${state.image.naturalWidth} / ${state.image.naturalHeight}`;
+  els.dropzone.style.aspectRatio = imgRatio;
+  els.dropzone.style.minHeight = "0";
+  els.compareBox.style.aspectRatio = imgRatio;
+  els.compareBox.style.minHeight = "0";
 
   els.beforeImage.src = state.sourceUrl;
   els.sourceThumb.src = state.sourceUrl;
@@ -539,8 +609,7 @@ async function handleFile(file) {
   els.headerFormat.textContent = `${state.image.naturalWidth} x ${state.image.naturalHeight}`;
   els.headerSaving.textContent = "Loaded";
   els.resultStatus.textContent = "Ready to compress.";
-  els.downloadButton.classList.add("is-disabled");
-  els.downloadButton.removeAttribute("href");
+  setDownloadEnabled(false);
   els.resetButton.disabled = false;
   els.compressButton.disabled = false;
   els.outputSize.textContent = "-";
@@ -554,20 +623,32 @@ async function handleFile(file) {
 }
 
 function recommendCodec(file) {
+  // If the source is already WebP/AVIF, suggest AVIF as a meaningful conversion.
+  const sourceIsModern = file.type === "image/webp" || file.type === "image/avif";
+  if (sourceIsModern && state.supported.avif) {
+    setCodec("avif");
+    els.qualityRange.value = 80;
+    return;
+  }
+
   if (state.supported.webp) {
-    document.querySelector('input[value="webp"]').checked = true;
+    setCodec("webp");
     els.qualityRange.value = 82;
     return;
   }
+
   if (state.hasAlpha) {
-    document.querySelector('input[value="png"]').checked = true;
+    setCodec("png");
     return;
   }
-  document.querySelector('input[value="jpeg"]').checked = true;
+
+  setCodec("jpeg");
 }
 
 function syncCompareSlider() {
   const value = Number(els.compareSlider.value);
+  els.compareBox.classList.toggle("is-compare", state.previewMode === "compare");
+  els.compareDivider.style.left = `${value}%`;
   if (state.previewMode === "compressed") {
     els.afterImage.style.clipPath = "inset(0 0 0 0)";
   } else if (state.previewMode === "original") {
@@ -627,7 +708,8 @@ function syncControls() {
   els.settingsSummary.textContent = summaries[codecId];
 
   els.qualityValue.value = `${els.qualityRange.value}%`;
-  els.paletteValue.value = String(paletteSteps[Number(els.paletteRange.value) - 1]);
+  // Show the actual maximum color count (levels³) that will be applied.
+  els.paletteValue.value = String(selectedLevels() ** 3);
   els.passesValue.value = els.passesRange.value;
   const maxEdge = Number(els.resizeRange.value);
   els.resizeValue.value = maxEdge ? `${maxEdge}px` : "Original";
@@ -653,25 +735,24 @@ function scheduleCustomCompression() {
 }
 
 function applyPreset(name) {
-  const input = (value) => document.querySelector(`input[value="${value}"]`);
   updatePresetButtons(name);
 
   if (name === "photo") {
-    input(state.supported.webp ? "webp" : "jpeg").checked = true;
+    setCodec(state.supported.webp ? "webp" : "jpeg");
     els.qualityRange.value = 82;
     els.resizeRange.value = 0;
     els.targetInput.value = "";
   }
 
   if (name === "tiny") {
-    input(state.supported.webp ? "webp" : "jpeg").checked = true;
+    setCodec(state.supported.webp ? "webp" : "jpeg");
     els.qualityRange.value = 56;
     els.resizeRange.value = 1600;
     els.targetInput.value = "";
   }
 
   if (name === "transparent") {
-    input(state.supported.webp ? "webp" : "png-palette").checked = true;
+    setCodec(state.supported.webp ? "webp" : "png-palette");
     els.qualityRange.value = 86;
     els.paletteRange.value = 7;
     els.resizeRange.value = 0;
@@ -679,7 +760,7 @@ function applyPreset(name) {
   }
 
   if (name === "compat") {
-    input("jpeg").checked = true;
+    setCodec("jpeg");
     els.qualityRange.value = 84;
     els.resizeRange.value = 0;
     els.targetInput.value = "";
@@ -696,9 +777,27 @@ function resetApp() {
   state.outputUrl = "";
   state.image = null;
   state.hasAlpha = false;
+  state.rerun = false;
+  // Reset all compression settings to defaults.
+  els.qualityRange.value = 82;
+  els.paletteRange.value = 7;
+  els.resizeRange.value = 0;
+  els.targetInput.value = "";
+  els.passesRange.value = 8;
+  els.ditherToggle.checked = true;
+  els.matteInput.value = "#ffffff";
+  setCodec(state.supported.webp ? "webp" : "jpeg");
+  els.showAllSettingsToggle.checked = false;
+  els.controlStack.classList.add("hide-inactive");
+  clearTimeout(state.debounce);
+  state.debounce = 0;
   els.fileInput.value = "";
   els.sourceMeta.classList.add("is-hidden");
   els.compareBox.classList.remove("has-output");
+  els.dropzone.style.aspectRatio = "";
+  els.dropzone.style.minHeight = "";
+  els.compareBox.style.aspectRatio = "";
+  els.compareBox.style.minHeight = "";
   els.beforeImage.removeAttribute("src");
   els.afterImage.removeAttribute("src");
   els.sourceThumb.removeAttribute("src");
@@ -706,8 +805,7 @@ function resetApp() {
   document.querySelector(".drop-title").textContent = "Drop an image here";
   document.querySelector(".drop-subtitle").textContent =
     "PNG, JPEG, WebP, AVIF, GIF, or SVG if your browser can decode it";
-  els.downloadButton.classList.add("is-disabled");
-  els.downloadButton.removeAttribute("href");
+  setDownloadEnabled(false);
   els.compressButton.disabled = true;
   els.resetButton.disabled = true;
   state.previewMode = "compare";
@@ -721,6 +819,11 @@ function resetApp() {
   els.outputDimensions.textContent = "-";
   els.pixelDelta.textContent = "-";
   updatePresetButtons();
+  syncControls();
+  // Restart the idle canvas animation now that the dropzone is empty.
+  if (!state.animFrameId) {
+    state.animFrameId = requestAnimationFrame(drawIdleCanvas);
+  }
 }
 
 els.fileInput.addEventListener("change", (event) => {
@@ -779,7 +882,48 @@ window.addEventListener("beforeunload", () => {
   if (state.outputUrl) URL.revokeObjectURL(state.outputUrl);
 });
 
+// ── Theme management ─────────────────────────────────────────────
+function applyTheme(theme) {
+  if (theme === "dark") {
+    document.documentElement.setAttribute("data-theme", "dark");
+  } else {
+    document.documentElement.removeAttribute("data-theme");
+  }
+  localStorage.setItem("cl-theme", theme);
+}
+
+els.darkToggle.addEventListener("click", () => {
+  const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+  applyTheme(isDark ? "light" : "dark");
+});
+
+// Sync if OS-level preference changes and user has not made an explicit choice.
+const schemeQuery = window.matchMedia("(prefers-color-scheme: dark)");
+function onSchemeChange(event) {
+  if (localStorage.getItem("cl-theme")) return;
+  if (event.matches) {
+    document.documentElement.setAttribute("data-theme", "dark");
+  } else {
+    document.documentElement.removeAttribute("data-theme");
+  }
+}
+if (schemeQuery.addEventListener) {
+  schemeQuery.addEventListener("change", onSchemeChange);
+} else if (schemeQuery.addListener) {
+  // Safari < 14 only exposes the deprecated addListener.
+  schemeQuery.addListener(onSchemeChange);
+}
+
+// Expose each info tooltip's text to assistive tech (it is otherwise drawn
+// purely with a CSS ::after, so screen readers would announce an empty element).
+document.querySelectorAll(".info-dot[data-tip]").forEach((dot) => {
+  dot.setAttribute("role", "img");
+  if (!dot.hasAttribute("aria-label")) {
+    dot.setAttribute("aria-label", dot.dataset.tip);
+  }
+});
+
 syncCompareSlider();
 syncControls();
 checkCodecSupport();
-requestAnimationFrame(drawIdleCanvas);
+state.animFrameId = requestAnimationFrame(drawIdleCanvas);
