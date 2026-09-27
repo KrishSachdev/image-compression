@@ -97,6 +97,9 @@
       if (!card || !input) return;
       card.classList.toggle("is-disabled", !supported);
       input.disabled = !supported;
+      // Hide formats this browser can't create (usually AVIF) instead of
+      // showing a dead "Not available in this browser" card.
+      card.hidden = !supported;
       const description = card.querySelector("small");
       if (description) {
         description.textContent = supported
@@ -109,11 +112,7 @@
       CL.setCodec(CL.state.supported.webp ? "webp" : "jpeg");
     }
 
-    const pill = document.querySelector("#supportPill");
-    const count = Object.values(CL.state.supported).filter(Boolean).length;
-    pill.textContent = `${count} formats available`;
-    pill.title =
-      "Grey formats are not broken. This browser just cannot create that output format from a web page.";
+    // (The "N formats available" pill was removed on 26 Sep 2026.)
   };
 
   // Suggest a codec + quality for a freshly loaded file. Only used when the

@@ -109,8 +109,10 @@
   }
 
   function drawIdleCanvas() {
-    // Stop loop once an image is loaded; renderEmpty() restarts it.
-    if (els.dropzone.classList.contains("has-image")) {
+    // Stop loop once an image is loaded or another tool is open;
+    // renderEmpty() / onCompressShown restart it.
+    const otherTool = document.body.dataset.view && document.body.dataset.view !== "compress";
+    if (els.dropzone.classList.contains("has-image") || otherTool) {
       CL.state.animFrameId = 0;
       return;
     }
@@ -309,7 +311,7 @@
     els.compareBox.style.minHeight = "";
     els.dropTitle.textContent = "Drop images here";
     els.dropSubtitle.textContent =
-      "PNG, JPEG, WebP, AVIF, GIF, or SVG — one file or a whole batch";
+      "PNG, JPEG, WebP, AVIF, GIF, or SVG — one file or a whole batch. You can also paste with Ctrl+V.";
     els.sourceMeta.classList.add("is-hidden");
     els.editStrip.classList.add("is-hidden");
     els.bakeoffResults.hidden = true;
@@ -689,6 +691,7 @@
   CL.hooks.onTotals = updateHeaderStats;
   CL.hooks.addHistory = addHistory;
   CL.hooks.onPreviewModeChanged = updatePreviewButtons;
+  CL.hooks.onCompressShown = startIdle;
   CL.hooks.onFilesAdded = (added) => {
     // Respect saved settings; only recommend a codec for users who have
     // never adjusted anything.
@@ -730,7 +733,9 @@
     );
     if (files.length) {
       event.preventDefault();
-      CL.batch.addFiles(files);
+      // Pasted images go to whichever tool is open.
+      if (CL.tools) CL.tools.routeFiles(files);
+      else CL.batch.addFiles(files);
     }
   });
 
@@ -845,7 +850,30 @@
     } else {
       document.documentElement.removeAttribute("data-theme");
     }
-    localStorage.setItem("cl-theme", theme);
+    syncThemeColor();
+    try {
+      localStorage.setItem("cl-theme", theme);
+    } catch {
+      /* storage blocked (private mode): the choice lasts for this visit */
+    }
+  }
+
+  // The browser/phone status bar colour follows the in-app theme, not just
+  // the OS setting.
+  function syncThemeColor() {
+    const dark = document.documentElement.getAttribute("data-theme") === "dark";
+    document.querySelectorAll('meta[name="theme-color"]').forEach((meta) => {
+      meta.setAttribute("content", dark ? "#0d1412" : "#f5f8f6");
+    });
+  }
+  syncThemeColor();
+
+  function storedTheme() {
+    try {
+      return localStorage.getItem("cl-theme");
+    } catch {
+      return null;
+    }
   }
 
   els.darkToggle.addEventListener("click", () => {
@@ -856,12 +884,13 @@
   // Sync if OS-level preference changes and user has not made an explicit choice.
   const schemeQuery = window.matchMedia("(prefers-color-scheme: dark)");
   function onSchemeChange(event) {
-    if (localStorage.getItem("cl-theme")) return;
+    if (storedTheme()) return;
     if (event.matches) {
       document.documentElement.setAttribute("data-theme", "dark");
     } else {
       document.documentElement.removeAttribute("data-theme");
     }
+    syncThemeColor();
   }
   if (schemeQuery.addEventListener) {
     schemeQuery.addEventListener("change", onSchemeChange);
@@ -879,12 +908,31 @@
     }
   });
 
+  // Open each tooltip away from the nearest screen edge so it stays readable.
+  function alignTip(event) {
+    const dot = event.target.closest?.(".info-dot[data-tip]");
+    if (!dot) return;
+    const rect = dot.getBoundingClientRect();
+    const room = Math.min(270, window.innerWidth - 44) / 2;
+    if (rect.left + rect.width / 2 + room > window.innerWidth - 8) dot.dataset.tipAlign = "end";
+    else if (rect.left + rect.width / 2 - room < 8) dot.dataset.tipAlign = "start";
+    else delete dot.dataset.tipAlign;
+  }
+  document.addEventListener("pointerover", alignTip);
+  document.addEventListener("focusin", alignTip);
+
   // ── Boot ─────────────────────────────────────────────────────────
   if (!navigator.clipboard || !window.ClipboardItem) {
     els.copyButton.hidden = true;
   }
 
   if ("serviceWorker" in navigator && /^https?:$/.test(location.protocol)) {
+    // The cache-first worker serves the old version once after an update;
+    // when the new one takes over, say so instead of silently staying stale.
+    const hadController = Boolean(navigator.serviceWorker.controller);
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (hadController) CL.toast("Compress Lab was updated. Reload the page to get the new version.", 9000);
+    });
     window.addEventListener("load", () => {
       navigator.serviceWorker.register("./sw.js").catch(() => {
         /* offline support is a bonus, never an error */

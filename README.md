@@ -1,79 +1,65 @@
 # Compress Lab
 
-Compress Lab is a browser-based image compression tool. It lets you upload, paste, preview, compare, and download compressed images using common web formats.
+Compress Lab is a private image toolbox that runs entirely in your browser. It started as an image compressor and now has 18 tools for everyday image jobs. Your images are never uploaded: everything happens on your device, and the app works offline once it has loaded.
 
-Current version: Version 4
+Current version: Version 5 (image toolbox)
 
-Live Site
+## Tools
 
-GitHub Pages URL:
+**Shrink & convert**
+- Compress & convert: WebP, JPEG, PNG and PNG palette, with a side-by-side compare, target file size and batch mode
+- Resize: by width and height, percent, or to fit inside a box
+- Convert format: change the file type of one image or many
+- PDF to images: turn the pages of a PDF into PNG, JPEG or WebP pictures
 
-https://krishsachdev.github.io/image-compression/
+**Combine & split**
+- Images to PDF: many images into one PDF (A4, Letter or fit-to-image)
+- Split image: cut a picture into equal pieces, e.g. 3 across for a carousel
+- Stitch images: side by side, stacked or in a grid
+- Collage: 2 to 9 photos in a grid or featured layout
+- GIF maker: turn several photos into an animated GIF
 
-Features
+**Edit**
+- Crop: aspect presets for posts, stories and video, plus rotate and flip
+- Adjust & filters: brightness, contrast, saturation, warmth; black & white, sepia, invert
+- Frame & border: fit a whole photo into a square, 4:5 or story canvas without cropping
+- Watermark: text or logo, nine positions or repeated across the picture
+- Remove background: make a plain background see-through (colour-based)
 
-- Upload images by selecting, dragging, or pasting
-- Compress single images or batches
-- Download compressed images individually or as a ZIP
-- Compare original vs compressed output
-- Preview original, compressed, and split comparison views
-- Adjust quality, size, target file size, color count, dithering, and matte color
-- Supports saved settings
-- Includes zoom and preview controls
-- Works fully in the browser
-- Installable as a PWA when served from GitHub Pages or a local server
+**Privacy**
+- Hide details: cover faces, names or numbers with a solid box, pixelation or blur
+- Remove metadata: see what a photo gives away (location, phone, date) and remove it without re-compressing
 
-Compression Formats
+**Colour & make**
+- Colour picker & palette: pick colours and pull out a picture's main colours
+- QR code maker: links, text, Wi-Fi logins or contact cards, as PNG or SVG
 
-- WebP: Good default for small files, photos, and transparency
-- JPEG: Best compatibility for photos, but does not support transparency
-- PNG: Lossless format for screenshots, logos, and sharp graphics
-- PNG Palette: Smaller PNG output using fewer colors
-- AVIF: Efficient modern format, available only if the browser supports AVIF encoding
+## How To Use
 
-How To Use
+1. Open the app. It starts on All tools.
+2. Pick a tool from the grid or the tool bar.
+3. Drop, paste or choose your image (or PDF for PDF to images).
+4. Adjust the settings.
+5. Download the result, or send it to Compress to make it smaller.
 
-1. Open the website.
-2. Upload, drag, or paste an image.
-3. Choose a quick option or select a format manually.
-4. Adjust settings if needed.
-5. Click Compress image.
-6. Download the compressed output.
+## Run Locally
 
-Run Locally
+Option 1: Open directly
 
-Option 1: Open Directly
+Open `index.html` in a browser. Most features work this way.
 
-Open this file in a browser:
+Option 2: Local server (needed for installing it as an app and for offline use)
 
-index.html
-
-Most features work directly this way.
-
-Option 2: Local Server
-
-Use this option to test installable app and offline features.
-
+```
 python -m http.server 8000
+```
 
-Then open:
+Then open http://localhost:8000
 
-http://localhost:8000
+## Privacy
 
-GitHub Pages Setup
+All processing happens in your browser. Images and PDFs are never uploaded to a server.
 
-This project is designed to work with GitHub Pages.
+## Credits
 
-Recommended setup:
-
-- Repository: KrishSachdev/image-compression
-- Branch: main
-- GitHub Pages source: main / root
-
-Published URL:
-
-https://krishsachdev.github.io/image-compression/
-
-Notes
-
-All compression happens locally in the browser. Images are not uploaded to a server.
+PDF to images uses [pdf.js](https://mozilla.github.io/pdf.js/) by Mozilla (Apache License 2.0), included in `js/vendor/pdfjs/` with its licence.

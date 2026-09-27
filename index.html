@@ -6,7 +6,7 @@
     <title>Compress Lab</title>
     <meta
       name="description"
-      content="Private, in-browser image compression studio. Batch compress, compare, and convert images without uploading them anywhere."
+      content="Private, in-browser image compression studio and toolbox. Compress, convert, make PDFs, split and edit images without uploading them anywhere."
     />
     <meta name="theme-color" content="#f5f8f6" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#0d1412" media="(prefers-color-scheme: dark)" />
@@ -17,7 +17,8 @@
     <script>
       /* Prevent flash of wrong theme before app.js loads */
       (function(){
-        var t=localStorage.getItem('cl-theme');
+        var t=null;
+        try{t=localStorage.getItem('cl-theme');}catch(e){}
         if(t==='dark'||(!t&&matchMedia('(prefers-color-scheme:dark)').matches))
           document.documentElement.setAttribute('data-theme','dark');
       })();
@@ -71,7 +72,10 @@
       </div>
     </header>
 
-    <main class="workspace">
+    <!-- Tool bar: filled in by js/toolkit.js from the tool registry. -->
+    <nav class="tool-nav" id="toolNav" aria-label="Tools"></nav>
+
+    <main class="workspace" id="view-compress" aria-label="Compress and convert">
       <section class="panel input-panel" aria-labelledby="inputTitle">
         <div class="panel-head">
           <div>
@@ -197,7 +201,6 @@
               >
             </h2>
           </div>
-          <span class="support-pill" id="supportPill">Checking codecs</span>
         </div>
 
         <div class="section-label">
@@ -637,6 +640,9 @@
       </section>
     </main>
 
+    <!-- Every other tool's <main> is built here the first time it is opened. -->
+    <div id="toolViews"></div>
+
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
     <script src="js/state.js" defer></script>
@@ -647,5 +653,30 @@
     <script src="js/compare.js" defer></script>
     <script src="js/batch.js" defer></script>
     <script src="js/app.js" defer></script>
+    <script src="js/meta.js" defer></script>
+    <script src="js/pdf.js" defer></script>
+    <script src="js/toolkit.js" defer></script>
+    <script src="js/tools/pdf.js" defer></script>
+    <script src="js/tools/split.js" defer></script>
+    <script src="js/editor.js" defer></script>
+    <!-- Within each group (set in each tool file), script order here = order
+         in the tool bar and the All tools grid. -->
+    <script src="js/tools/resize.js" defer></script>
+    <script src="js/tools/convert.js" defer></script>
+    <script src="js/tools/pdfimages.js" defer></script>
+    <script src="js/tools/crop.js" defer></script>
+    <script src="js/tools/adjust.js" defer></script>
+    <script src="js/tools/stitch.js" defer></script>
+    <script src="js/tools/collage.js" defer></script>
+    <script src="js/gif.js" defer></script>
+    <script src="js/tools/gif.js" defer></script>
+    <script src="js/tools/frame.js" defer></script>
+    <script src="js/tools/watermark.js" defer></script>
+    <script src="js/tools/bgremove.js" defer></script>
+    <script src="js/tools/redact.js" defer></script>
+    <script src="js/tools/metadata.js" defer></script>
+    <script src="js/tools/palette.js" defer></script>
+    <script src="js/qr.js" defer></script>
+    <script src="js/tools/qr.js" defer></script>
   </body>
 </html>

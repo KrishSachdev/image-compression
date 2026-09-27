@@ -1,12 +1,18 @@
 {
   "name": "Compress Lab",
   "short_name": "Compress Lab",
-  "description": "Private, in-browser image compression studio. Nothing is uploaded anywhere.",
+  "description": "Private, in-browser image compression studio and toolbox. Nothing is uploaded anywhere.",
   "start_url": ".",
   "scope": ".",
   "display": "standalone",
   "background_color": "#f5f8f6",
   "theme_color": "#0f766e",
+  "shortcuts": [
+    { "name": "Images to PDF", "short_name": "To PDF", "url": "./#pdf", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" }] },
+    { "name": "Split image", "short_name": "Split", "url": "./#split", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" }] },
+    { "name": "Crop", "short_name": "Crop", "url": "./#crop", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" }] },
+    { "name": "Remove metadata", "short_name": "Metadata", "url": "./#metadata", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" }] }
+  ],
   "icons": [
     {
       "src": "icons/icon-192.png",

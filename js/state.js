@@ -36,13 +36,13 @@
     });
   };
 
-  CL.toast = function (message) {
+  CL.toast = function (message, ms = 2800) {
     const el = document.querySelector("#toast");
     if (!el) return;
     el.textContent = message;
     el.classList.add("is-visible");
     clearTimeout(CL.toast.timer);
-    CL.toast.timer = setTimeout(() => el.classList.remove("is-visible"), 2800);
+    CL.toast.timer = setTimeout(() => el.classList.remove("is-visible"), ms);
   };
 
   // Cross-module callbacks assigned by app.js; modules that load earlier call
